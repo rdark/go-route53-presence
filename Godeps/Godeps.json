@@ -1,14 +1,14 @@
 {
-	"ImportPath": "github.com/majorleaguesoccer/go-route53-presence",
-	"GoVersion": "go1.3.1",
+	"ImportPath": "github.com/pindar/go-route53-presence",
+	"GoVersion": "go1.4.1",
 	"Deps": [
 		{
 			"ImportPath": "github.com/crowdmob/goamz/aws",
-			"Rev": "e44a1bffd5ddd4e91132bb440eca6e70d80b26be"
+			"Rev": "205a765a895939ba61b1ce75425c9074140d0bff"
 		},
 		{
 			"ImportPath": "github.com/crowdmob/goamz/route53",
-			"Rev": "e44a1bffd5ddd4e91132bb440eca6e70d80b26be"
+			"Rev": "205a765a895939ba61b1ce75425c9074140d0bff"
 		}
 	]
 }
