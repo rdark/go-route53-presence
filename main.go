@@ -94,13 +94,8 @@ func main() {
 	// this waits until we get a kill signal
 	<-c
 
-	change.Action = "DELETE"
-	changeReq.Changes = []route53.Change{change}
+	// we are not deleting the route53 entry because we don't want to decrease the TTL of the authority
+	// or disable the fleet move mechanism.
 
-	_, err = awsRoute53.ChangeResourceRecordSet(changeReq, zoneID)
-	if err != nil {
-		log.Fatalln("Error deregistering instance IP address with Route53", err)
-	}
-
-	log.Printf("Deregistered %s record %s with route53 zone %s\n", recordType, recordName, zoneID)
+	log.Printf("Stopped but not removed %s record %s with route53 zone %s\n", recordType, recordName, zoneID)
 }
