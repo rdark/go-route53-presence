@@ -14,7 +14,7 @@ import (
 	"github.com/crowdmob/goamz/route53"
 )
 
-var recordName, recordType, zoneID, ttl, accessKey, secretKey, ipType string
+var recordName, recordType, zoneID, ttl, accessKey, secretKey, ipType, stopBehavior string
 
 func init() {
 	flag.StringVar(&recordName, "recordName", os.Getenv("ROUTE53_RECORD_NAME"), "DNS Record name to register with Route53.")
@@ -24,6 +24,7 @@ func init() {
 	flag.StringVar(&ipType, "ipType", os.Getenv("ROUTE53_IP_TYPE"), "Set to public or private for corresponding instance IP. Defaults to private.")
 	flag.StringVar(&accessKey, "accessKey", os.Getenv("AWS_ACCESS_KEY"), "AWS Access Key.")
 	flag.StringVar(&secretKey, "secretKey", os.Getenv("AWS_SECRET_KEY"), "AWS Secret Key.")
+	flag.StringVar(&stopBehavior, "stopBehavior", os.Getenv("ROUTE53_STOP_BEHAVIOR"), "What to do when container stops - 'DELETE' will delete the entry, any other arg (or empty) will leave it in place. Default is the latter")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "go-route53-presence\n")
@@ -94,8 +95,19 @@ func main() {
 	// this waits until we get a kill signal
 	<-c
 
-	// we are not deleting the route53 entry because we don't want to decrease the TTL of the authority
-	// or disable the fleet move mechanism.
+    if stopBehavior == "DELETE" {
+        change.Action = "DELETE"
+        changeReq.Changes = []route53.Change{change}
 
-	log.Printf("Stopped but not removed %s record %s with route53 zone %s\n", recordType, recordName, zoneID)
+        _, err = awsRoute53.ChangeResourceRecordSet(changeReq, zoneID)
+        if err != nil {
+            log.Fatalln("Error deregistering instance IP address with Route53", err)
+        }
+        log.Printf("Deregistered %s record %s with route53 zone %s\n", recordType, recordName, zoneID)
+    } else {
+	    // we are not deleting the route53 entry because we don't want to decrease the TTL of the authority
+	    // or disable the fleet move mechanism.
+	    log.Printf("Stopped but not removed %s record %s with route53 zone %s\n", recordType, recordName, zoneID)
+    }
+
 }
