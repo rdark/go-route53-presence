@@ -10,15 +10,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/crowdmob/goamz/aws"
-	"github.com/crowdmob/goamz/route53"
+	"github.com/AdRoll/goamz/aws"
+	"github.com/AdRoll/goamz/route53"
 )
 
-var recordName, recordType, zoneID, ttl, accessKey, secretKey, ipType, stopBehavior string
+var recordName, recordType, recordContent, zoneID, ttl, accessKey, secretKey, ipType, stopBehavior string
 
 func init() {
 	flag.StringVar(&recordName, "recordName", os.Getenv("ROUTE53_RECORD_NAME"), "DNS Record name to register with Route53.")
 	flag.StringVar(&recordType, "recordType", os.Getenv("ROUTE53_RECORD_TYPE"), "DNS Record type to register with Route53.")
+	flag.StringVar(&recordContent, "recordContent", os.Getenv("ROUTE53_RECORD_CONTENT"), "Optional. If given, then the record will be populated with this (useful if you want to create a CNAME to the split-horizon public address). Otherwise ROUTE53_IP_TYPE is used, which depends on access to the host meta-data API endpoint. Default is the latter")
 	flag.StringVar(&ttl, "ttl", os.Getenv("ROUTE53_TTL"), "TTL for DNS record. Defaults to 300.")
 	flag.StringVar(&zoneID, "zoneID", os.Getenv("ROUTE53_ZONE_ID"), "Route53 zone identifier.")
 	flag.StringVar(&ipType, "ipType", os.Getenv("ROUTE53_IP_TYPE"), "Set to public or private for corresponding instance IP. Defaults to private.")
@@ -35,18 +36,23 @@ func init() {
 }
 
 func main() {
-	var instanceIP string
+	var resValue string
 
-	if ipType == "public" {
-		instanceIP = aws.ServerPublicIp()
-	} else {
-		ipType = "private"
-		instanceIP = aws.ServerLocalIp()
-	}
-
-	// if instanceIP == "127.0.0.1" {
-	// 	log.Fatalln(fmt.Sprintf("Unable to get instance %s ip address", ipType))
-	// }
+    if recordContent == "" {
+	    if ipType == "public" {
+	    	resValue = aws.ServerPublicIp()
+	    } else {
+	    	ipType = "private"
+	    	resValue = aws.ServerLocalIp()
+	    }
+        // failed to contact meta-data API, or something else went wrong
+	    if resValue == "127.0.0.1" {
+	        log.Fatalln(fmt.Sprintf("Unable to get instance %s ip address", ipType))
+	    }
+    } else {
+        // use user-supplied record - e.g value of $(curl http://169.254.169.254/latest/meta-data/public-hostname)
+        resValue = recordContent
+    }
 
 	// Default to 5 minute ttl
 	if ttl == "" {
@@ -68,7 +74,7 @@ func main() {
 		log.Fatalln("Error creating route53 resource", err)
 	}
 
-	record := route53.ResourceRecordValue{Value: instanceIP}
+	record := route53.ResourceRecordValue{Value: resValue}
 	records := []route53.ResourceRecordValue{record}
 
 	change := route53.Change{}
@@ -84,7 +90,7 @@ func main() {
 
 	_, err = awsRoute53.ChangeResourceRecordSet(changeReq, zoneID)
 	if err != nil {
-		log.Fatalln("Error registering instance IP address with Route53", err)
+		log.Fatalln("Error registering resource record set with Route53", err)
 	}
 
 	log.Printf("Registered %s record %s (TTL: %d) with route53 zone %s\n", recordType, recordName, ttl, zoneID)
